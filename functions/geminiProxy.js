@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    // 解析请求参数并设置默认modelId
+    // 解析参数并设置默认模型
     const { prompt, apiKey, modelId = "gemini-pro" } = JSON.parse(event.body);
     
     if (!apiKey ||!prompt) {
@@ -14,15 +14,10 @@ exports.handler = async (event) => {
     }
 
     // 处理modelId格式
-    let formattedModelId;
-    if (modelId.startsWith('models/')) {
-      formattedModelId = modelId;
-    } else {
-      formattedModelId = `models/${modelId}`;
-    }
+    let formattedModelId = modelId.startsWith('models/')? modelId : `models/${modelId}`;
 
-    // 构建API地址
-    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/${formattedModelId}:generateContent?key=${apiKey}`;
+    // 关键修复：使用v1稳定版API
+    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1/${formattedModelId}:generateContent?key=${apiKey}`;
     
     const response = await axios.post(
       geminiApiUrl,
@@ -31,15 +26,20 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Access-Control-Allow-Origin': '*' 
+      },
       body: JSON.stringify(response.data)
     };
   } catch (error) {
-    // 确保只引用在try块之外或一定会定义的变量
     const errorDetails = {
       message: error.message,
       status: error.response?.status,
-      url: error.config?.url
+      url: error.config?.url,
+      // 新增模型和API版本信息用于排查
+      modelId: modelId || '未提供',
+      apiVersion: 'v1'
     };
     return {
       statusCode: error.response?.status || 500,
