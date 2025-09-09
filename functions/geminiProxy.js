@@ -6,14 +6,17 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { prompt, apiKey } = JSON.parse(event.body);
+    const { prompt, apiKey, modelId = "gemini-pro" } = JSON.parse(event.body);
     
     if (!apiKey ||!prompt) {
       return { statusCode: 400, body: JSON.stringify({ error: '缺少参数' }) };
     }
 
+    // 修正API地址：包含正确的模型ID占位符
+    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/${modelId}:generateContent?key=${apiKey}`;
+    
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+      geminiApiUrl,
       { contents: [{ parts: [{ text: prompt }] }] }
     );
 
@@ -23,9 +26,15 @@ exports.handler = async (event) => {
       body: JSON.stringify(response.data)
     };
   } catch (error) {
+    // 增加错误详情，便于排查
+    const errorDetails = {
+      message: error.message,
+      status: error.response?.status,
+      url: error.config?.url
+    };
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      statusCode: error.response?.status || 500,
+      body: JSON.stringify({ error: '代理请求失败', details: errorDetails })
     };
   }
 };
