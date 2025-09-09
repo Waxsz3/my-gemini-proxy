@@ -6,14 +6,25 @@ exports.handler = async (event) => {
   }
 
   try {
+    // 支持灵活的modelId传入方式
     const { prompt, apiKey, modelId = "gemini-pro" } = JSON.parse(event.body);
     
     if (!apiKey ||!prompt) {
       return { statusCode: 400, body: JSON.stringify({ error: '缺少参数' }) };
     }
 
-    // 修正API地址：包含正确的模型ID占位符
-    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/${modelId}:generateContent?key=${apiKey}`;
+    // 核心逻辑：自动检测并处理modelId格式
+    let formattedModelId;
+    if (modelId.startsWith('models/')) {
+      // 如果已包含models/前缀，直接使用
+      formattedModelId = modelId;
+    } else {
+      // 如果是纯模型名，自动添加models/前缀
+      formattedModelId = `models/${modelId}`;
+    }
+
+    // 构建正确的API地址
+    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/${formattedModelId}:generateContent?key=${apiKey}`;
     
     const response = await axios.post(
       geminiApiUrl,
@@ -26,11 +37,12 @@ exports.handler = async (event) => {
       body: JSON.stringify(response.data)
     };
   } catch (error) {
-    // 增加错误详情，便于排查
     const errorDetails = {
       message: error.message,
       status: error.response?.status,
-      url: error.config?.url
+      url: error.config?.url, // 查看最终请求的URL是否正确
+      originalModelId: modelId, // 原始传入的modelId
+      formattedModelId: formattedModelId // 处理后的modelId
     };
     return {
       statusCode: error.response?.status || 500,
@@ -38,3 +50,4 @@ exports.handler = async (event) => {
     };
   }
 };
+    
